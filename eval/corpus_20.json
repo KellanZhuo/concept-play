@@ -1,0 +1,22 @@
+[
+  {"id": "doc-01", "domain": "LLM", "title": "LoRA 低秩自适应微调参数压缩原理", "text": "LoRA 冻结预训练权重 W0，用低秩矩阵 A(r*d) 和 B(d*r) 表示增量更新，训练参数从 d^2 降至 2dr，推理时合并回原权重实现零额外延迟。"},
+  {"id": "doc-02", "domain": "RAG", "title": "RAG 分块粒度与重排器协同策略", "text": "Chunk 过小损失跨句指代，过大稀释向量语义并推高 TTFT；工程采用 256-token 子块召回 Top-20 后经 Cross-Encoder 精排 Top-5。"},
+  {"id": "doc-03", "domain": "Systems", "title": "令牌桶与漏桶限流算法权衡", "text": "漏桶以恒定速率平滑突发流量，令牌桶按速率生成令牌并允许桶容量上限内的短时突发流量通过。"},
+  {"id": "doc-04", "domain": "RecSys", "title": "推荐系统内容与协同混合排序双层兜底", "text": "结合 60% 内容相似度与 40% 物品协同过滤缓解冷启动，并通过 500+ 主池与 100+ 兜底池保障推荐列表 12 坑位满额填充。"},
+  {"id": "doc-05", "domain": "AI Eval", "title": "图像恢复 PSNR 与 OCR 字符错误率指标错配", "text": "过度平滑噪声虽然降低像素均方误差拉高 PSNR，却抹除 10pt 小字高频边缘导致 OCR 大面积空框漏读。"},
+  {"id": "doc-06", "domain": "LLM", "title": "KV Cache 显存占用与 GQA 分组查询注意力", "text": "自回归解码时 KV Cache 随序列长度与层数线性膨胀；GQA 让多个 Query 头共享一组 Key/Value 头，大幅压缩显存带宽瓶颈。"},
+  {"id": "doc-07", "domain": "Agent", "title": "生产级 Agent 工具调用熔断与发前强校验", "text": "针对外部副作用工具，执行前强校验会话身份防状态漂移，连续超时触发熔断器转人工队列，配合幂等键杜绝重复写操作。"},
+  {"id": "doc-08", "domain": "Database", "title": "B+ 树索引与 LSM-Tree 读写放大权衡", "text": "B+ 树读延迟稳定但随机写存在页分裂放大；LSM-Tree 将随机写转为顺序追加日志提升写吞吐，通过后台 Compaction 换取空间回收。"},
+  {"id": "doc-09", "domain": "Product", "title": "SaaS 订阅留存率、流失率与 LTV/CAC 单位经济模型", "text": "客户生命周期价值 LTV = ARPU * 毛利率 / 月流失率 Churn，健康 B2B SaaS 要求 LTV/CAC 大于 3 且 CAC 回收期短于 12 个月。"},
+  {"id": "doc-10", "domain": "ML", "title": "分类阈值调整对 Precision、Recall 与 F1 的影响", "text": "提高判定阈值会减少误报提升 Precision，但增加漏报降低 Recall；欺诈拦截与医疗筛查需按误判代价非对称设定阈值。"},
+  {"id": "doc-11", "domain": "LLM", "title": "Softmax 温度系数 Temperature 与 Top-P 核采样", "text": "低温使概率分布尖锐趋近贪心解码适合代码数学，高温平坦化分布激发创意，配合 Top-P 截断长尾低概率荒谬词。"},
+  {"id": "doc-12", "domain": "Distributed", "title": "CAP 定理与 Quorum 读写一致性配置 (N, W, R)", "text": "副本数 N 下若写入确认数 W + 读取确认数 R > N，则读集合必与最新写集合交叠从而保障强一致读，否则为最终一致。"},
+  {"id": "doc-13", "domain": "Network", "title": "TCP 拥塞控制：慢启动、拥塞避免与快速恢复", "text": "慢启动每 RTT 指数倍增 cwnd 直至 ssthresh，随后线性加性增；遇三次重复 ACK 触发乘性减半而非归零重来。"},
+  {"id": "doc-14", "domain": "AI Infra", "title": "模型量化：FP16 到 INT8/INT4 压缩与离群值挑战", "text": "低比特量化将权重与激活映射到整数网格降低显存与带宽，但大语言模型特定通道存在极端离群值需混合精度或平滑缩放保护。"},
+  {"id": "doc-15", "domain": "Product", "title": "A/B 实验样本量估算：显著性水平、统计功效与 MDE", "text": "最小可检测效应 MDE 越小或统计功效要求越高，所需每组最小样本量按 MDE 平方反比急剧上升，提前偷看结果会膨胀假阳性率。"},
+  {"id": "doc-16", "domain": "RL", "title": "强化学习探索与利用：ε-Greedy 与折扣因子 γ", "text": "ε 概率随机探索新动作、(1-ε) 利用当前最优动作；折扣因子 γ 决定智能体对远期累积奖励与眼前即时奖励的偏好权重。"},
+  {"id": "doc-17", "domain": "Caching", "title": "缓存穿透、缓存击穿与缓存雪崩防护设计", "text": "布隆过滤器拦截不存在键防穿透，互斥锁或逻辑过期保护热点键防击穿，TTL 叠加随机抖动打散同时失效防雪崩。"},
+  {"id": "doc-18", "domain": "Search", "title": "BM25 词频饱和度 k1 与文档长度归一化 b 参数", "text": "相比传统 TF-IDF 词频无限线性增长，BM25 用 k1 控制高频词收益快速饱和，并用参数 b 惩罚过长文档带来的偶然命中。"},
+  {"id": "doc-19", "domain": "Vision", "title": "卷积感受野、步幅 Stride 与空洞卷积扩张率", "text": "增大卷积核会平方增加参数，空洞卷积引入扩张率 dilation 在保持参数量与特征图分辨率不变的同时指数扩大感受野。"},
+  {"id": "doc-20", "domain": "Agent", "title": "多智能体串行流水线错误累积与检查点校验", "text": "若单步成功率为 p，N 步无校验串联总成功率按 p^N 指数衰减；在关键节点插入确定性校验与单步重试可显著抬升端到端可靠性。"}
+]
