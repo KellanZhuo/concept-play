@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Loader2, Sparkles, Wand2, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Loader2, RefreshCw, Sparkles, Wand2, X } from 'lucide-react';
 import {
   compileArticleToInteractiveDoc,
   type CompileConfig,
@@ -7,6 +7,16 @@ import {
 } from '../compiler/clientCompiler';
 import type { InteractiveExplainerDoc } from '../schema/dsl';
 import { SAMPLE_RAW_ARTICLES } from '../presets';
+
+const DEFAULT_GEMINI_MODELS = [
+  'gemini-3.8-flash',
+  'gemini-3.5-flash',
+  'gemini-3.1-pro-preview',
+  'gemini-2.5-flash',
+  'gemini-2.5-pro',
+];
+
+const DEFAULT_OPENAI_MODELS = ['deepseek-chat', 'qwen-plus', 'gpt-4o-mini', 'gpt-4o'];
 
 export function CompileModal({
   onClose,
@@ -19,21 +29,78 @@ export function CompileModal({
     () => (sessionStorage.getItem('cp_provider') as ProviderType) || 'gemini',
   );
   const [apiKey, setApiKey] = useState(() => sessionStorage.getItem('cp_api_key') || '');
-  const [model, setModel] = useState(() => sessionStorage.getItem('cp_model') || 'gemini-2.5-flash');
+  const [model, setModel] = useState(() => sessionStorage.getItem('cp_model') || 'gemini-3.5-flash');
   const [baseUrl, setBaseUrl] = useState(
     () => sessionStorage.getItem('cp_base_url') || 'https://api.deepseek.com/v1',
   );
   const [sourceText, setSourceText] = useState(SAMPLE_RAW_ARTICLES[0].content);
 
+  const [availableModels, setAvailableModels] = useState<string[]>(DEFAULT_GEMINI_MODELS);
+  const [loadingModels, setLoadingModels] = useState(false);
+  const [modelsFetched, setModelsFetched] = useState(false);
+
   const [compiling, setCompiling] = useState(false);
   const [progressMsg, setProgressMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
+  const fetchGeminiModels = async (keyToUse: string) => {
+    const cleanKey = keyToUse.trim();
+    if (!cleanKey || cleanKey.length < 20) return;
+    setLoadingModels(true);
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(cleanKey)}`,
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      const list: string[] = (data.models || [])
+        .filter((m: { name?: string; supportedGenerationMethods?: string[] }) => {
+          const id = (m.name || '').replace(/^models\//, '');
+          const supportsGen = m.supportedGenerationMethods?.includes('generateContent');
+          const isTextGen =
+            id.startsWith('gemini-') &&
+            !id.includes('tts') &&
+            !id.includes('image') &&
+            !id.includes('embedding') &&
+            !id.includes('audio') &&
+            !id.includes('vision');
+          return supportsGen && isTextGen;
+        })
+        .map((m: { name: string }) => m.name.replace(/^models\//, ''))
+        .sort((a: string, b: string) => b.localeCompare(a, undefined, { numeric: true }));
+
+      if (list.length > 0) {
+        setAvailableModels(list);
+        setModelsFetched(true);
+        if (!list.includes(model)) {
+          const preferred = list.find((m) => m.includes('flash') && !m.includes('lite')) || list[0];
+          setModel(preferred);
+        }
+      }
+    } catch {
+      // Keep default preset list if network/key check fails
+    } finally {
+      setLoadingModels(false);
+    }
+  };
+
+  // Auto-fetch available Gemini models when user pastes a valid-looking Gemini API key
+  useEffect(() => {
+    if (provider === 'gemini' && apiKey.trim().startsWith('AIza') && apiKey.trim().length >= 30) {
+      const timer = window.setTimeout(() => {
+        fetchGeminiModels(apiKey);
+      }, 350);
+      return () => window.clearTimeout(timer);
+    }
+  }, [apiKey, provider]);
+
   const switchProvider = (next: ProviderType) => {
     setProvider(next);
     if (next === 'gemini') {
-      setModel('gemini-2.5-flash');
+      setAvailableModels(DEFAULT_GEMINI_MODELS);
+      setModel(DEFAULT_GEMINI_MODELS[1]);
     } else {
+      setAvailableModels(DEFAULT_OPENAI_MODELS);
       setModel('deepseek-chat');
     }
   };
@@ -69,7 +136,7 @@ export function CompileModal({
       onCompiled(compiledDoc);
       onClose();
     } catch (err) {
-      setErrorMsg((err as Error).message || '编译失败，请检查 API Key 或模型名称。');
+      setErrorMsg((err as Error).message || '编译失败，请检查 API Key 或切换其他可用模型。');
     } finally {
       setCompiling(false);
     }
@@ -103,7 +170,9 @@ export function CompileModal({
           {/* Provider selector */}
           <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-xs font-bold text-slate-800">1. 选择编译模型接口（浏览器端直连，Key 不经过任何中转）</span>
+              <span className="text-xs font-bold text-slate-800">
+                1. 选择编译模型接口（浏览器端直连，Key 不经过任何中转）
+              </span>
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -137,19 +206,53 @@ export function CompileModal({
                   type="password"
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  placeholder={provider === 'gemini' ? 'AIzaSy... (aistudio.google.com 免费获取)' : 'sk-...'}
+                  placeholder={provider === 'gemini' ? 'AIzaSy... (粘贴后自动检测可用模型)' : 'sk-...'}
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs focus:border-blue-600 focus:outline-none"
                 />
               </div>
+
               <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">模型名称</label>
-                <input
-                  type="text"
-                  value={model}
-                  onChange={(e) => setModel(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-mono focus:border-blue-600 focus:outline-none"
-                />
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] font-semibold text-slate-600">
+                    选择模型 {modelsFetched && <span className="text-emerald-600">(已同步账号最新列表)</span>}
+                  </label>
+                  {provider === 'gemini' && (
+                    <button
+                      type="button"
+                      onClick={() => fetchGeminiModels(apiKey)}
+                      disabled={loadingModels || !apiKey.trim()}
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-800 disabled:opacity-40 cursor-pointer"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${loadingModels ? 'animate-spin' : ''}`} />
+                      刷新列表
+                    </button>
+                  )}
+                </div>
+                <div className="flex gap-1.5">
+                  <select
+                    value={availableModels.includes(model) ? model : '__custom__'}
+                    onChange={(e) => {
+                      if (e.target.value !== '__custom__') setModel(e.target.value);
+                    }}
+                    className="w-1/2 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs font-mono focus:border-blue-600 focus:outline-none"
+                  >
+                    {availableModels.map((m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
+                    <option value="__custom__">自定义输入...</option>
+                  </select>
+                  <input
+                    type="text"
+                    value={model}
+                    onChange={(e) => setModel(e.target.value)}
+                    placeholder="或手填任意模型 ID"
+                    className="w-1/2 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-mono focus:border-blue-600 focus:outline-none"
+                  />
+                </div>
               </div>
+
               {provider === 'openai_compat' && (
                 <div className="sm:col-span-2">
                   <label className="block text-[11px] font-semibold text-slate-600 mb-1">
@@ -169,7 +272,9 @@ export function CompileModal({
           {/* Sample raw texts + textarea */}
           <div className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-xs font-bold text-slate-800">2. 粘贴任意长文 / 论文摘要 / 产品文档（或点选右侧测试原文）</span>
+              <span className="text-xs font-bold text-slate-800">
+                2. 粘贴任意长文 / 论文摘要 / 产品文档（或点选右侧测试原文）
+              </span>
               <div className="flex flex-wrap gap-1.5">
                 {SAMPLE_RAW_ARTICLES.map((s) => (
                   <button
